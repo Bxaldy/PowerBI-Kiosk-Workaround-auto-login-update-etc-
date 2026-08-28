@@ -54,16 +54,16 @@ CONFIG_FILE = Path(__file__).parent / "config.json"
 if CONFIG_FILE.exists():
     with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
-        URL_PATH = Path(config.get("html_file_path", r"C:\Users\ibuicu\Desktop\POWERBI python\ecran1.html"))
+        URL_PATH = Path(config.get("html_file_path", r"C:\Users\your_path_to.html"))
 else:
     # Fallback to default if config file doesn't exist
-    URL_PATH = Path(r"C:\Users\ibuicu\Desktop\POWERBI python\ecran1.html")
+    URL_PATH = Path(r"C:\Users\your_path_to.html")
 
 URL_DASHBOARD = URL_PATH.as_uri()
 
 USER_EMAIL = "powerbi_email@example.com"
-#PASSWORD = "PAROLA" # a se folosi doar pentru teste locale sau unde nu sunt drepturi de acces pe variabila de mediu
-PASSWORD = os.environ.get("PBI_KIOSK_PASSWORD")  # cmd -> setx PBI_KIOSK_PASSWORD "parola"
+#PASSWORD = "PASSWORD" # use only for local tests or where there are no access rights to set environment variables
+PASSWORD = os.environ.get("PBI_KIOSK_PASSWORD")  # cmd -> setx PBI_KIOSK_PASSWORD "password"
 
 SCAN_INTERVAL_SECONDS = 2.5
 PBI_SIGNIN_COOLDOWN   = 5.0
@@ -73,6 +73,8 @@ IFRAME_MAX_DEPTH      = 3
 
 MS_PRIMARY_BTN_ID = "idSIButton9"  # Next / Sign in / Yes / Continue
 
+#ATTENTION THIS BUTTON ID MIGHT CHANGE IN THE FUTURE AND SHOULD BE UPDATED WHEN THAT'S GONNA HAPPEN
+
 # Popup blank (about:blank) handling
 BLANK_POPUP_WAIT_SECONDS = 10.0
 BLANK_POPUP_COOLDOWN     = 20.0
@@ -80,20 +82,20 @@ BLANK_POPUP_COOLDOWN     = 20.0
 # Heartbeat logging
 HEARTBEAT_SECONDS = 60.0
 
-# Safety: cap de tab-uri (anti "tab explosion")
+# Safety: tab cap (anti "tab explosion")
 MAX_TABS_SAFETY = 15
 
 # === Anti-flicker / AAD popup policy ===
-# 1) cât timp considerăm că autentificarea AAD e "în curs"
+# 1) how long we consider AAD authentication to be "in progress"
 AAD_FLOW_ACTIVE_TIMEOUT = 120.0
 
-# 2) cât timp AAD e activ, nu mai apăsăm "Sign in" în PBI (altfel deschidem alte popups)
+# 2) while AAD is active, do not press "Sign in" in PBI (otherwise we open other popups)
 SKIP_PBI_SIGNIN_WHEN_AAD_ACTIVE = True
 
-# 3) închide popup-ul AAD când flow-ul e gata (reduce ferestre rămase)
+# 3) close AAD popup when flow is done (reduces leftover windows)
 CLOSE_AAD_POPUP_WHEN_DONE = True
 
-# 4) dacă ai refresh în HTML și apare beforeunload prompt, Selenium acceptă automat
+# 4) if HTML refreshes and beforeunload prompt appears, Selenium auto-accepts
 ACCEPT_UNHANDLED_PROMPTS = True
 
 
@@ -145,7 +147,7 @@ def log_err(msg):  LOGGER.error(msg)
 # ===================== PROCESS CLEANUP =====================
 def kill_edge_processes():
     """
-    Forçează închiderea tuturor proceselor msedge.exe și wermgr.exe pentru a evita zombie processes.
+    Forces closure of all msedge.exe and wermgr.exe processes to avoid zombie processes.
     """
     try:
         # Kill main Edge processes
@@ -175,7 +177,7 @@ def kill_edge_processes():
 
 def soft_quit_driver(driver):
     """
-    Încearcă să închidă driver-ul curat; dacă eșuează, forțează.
+    Attempts to close the driver cleanly; if it fails, forces kill.
     """
     try:
         driver.quit()
@@ -189,8 +191,8 @@ def soft_quit_driver(driver):
 # ===================== ALERT / BEFOREUNLOAD HANDLING =====================
 def accept_any_alert(driver) -> bool:
     """
-    Acceptă orice alert/confirm/beforeunload (ex: "Reload site?").
-    Returnează True dacă a acceptat ceva.
+    Accepts any alert/confirm/beforeunload (e.g., "Reload site?").
+    Returns True if something was accepted.
     """
     try:
         al = driver.switch_to.alert
@@ -240,7 +242,7 @@ def restart_driver(driver, reason: str, retries: int = 3):
             try:
                 log_info(f"[RECOVER] New session started. URL: {new_driver.current_url}")
             except Exception:
-                log_info("[RECOVER] New session started. URL: (necunoscut)")
+                log_info("[RECOVER] New session started. URL: (unknown)")
             return new_driver
 
         except Exception as e:
@@ -263,7 +265,7 @@ def restart_driver(driver, reason: str, retries: int = 3):
 
 def restart_entire_script():
     """
-    Restarează scriptul complet de la zero (ultimă opțiune).
+    Restarts the entire script from scratch (last resort).
     """
     log_err("[FATAL] Restarting entire script in 5 seconds...")
     time.sleep(5)
@@ -291,7 +293,6 @@ def verify_webdriver_available():
     Automatically installs webdriver-manager if not present.
     Called at script startup to fail fast if driver cannot be obtained.
     """
-    # First, ensure webdriver-manager is installed
     log_info("[SETUP] Checking if webdriver-manager is installed...")
     try:
         from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -330,7 +331,7 @@ def start_browser():
     
     here = Path(__file__).resolve().parent
 
-    # profil persistent
+    # persistent profile
     profile_dir = here / "EdgeProfile"
     profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -358,14 +359,11 @@ def start_browser():
     opts.add_experimental_option("useAutomationExtension", False)
 
     if ACCEPT_UNHANDLED_PROMPTS:
-        # acceptă automat confirm/beforeunload prompturi
+        # auto-accept confirm/beforeunload prompts
         opts.set_capability("unhandledPromptBehavior", "accept")
 
-    log_info(f"Profil Edge persistent: {profile_dir}")
+    log_info(f"Persistent Edge profile: {profile_dir}")
 
-    # Auto-download matching webdriver for current Edge version
-    # webdriver_manager caches by version, so subsequent runs are fast
-    # NOTE: Using new Microsoft CDN (msedgedriver.microsoft.com) instead of deprecated azureedge.net
     log_info("[WEBDRIVER] Detecting Edge version and downloading matching driver...")
     try:
         svc_path = EdgeChromiumDriverManager(
@@ -459,14 +457,12 @@ def click_sso_consent_continue(driver, timeout=3) -> bool:
     """
     wait_overlay_clear(driver, timeout=2)
     try:
-        # Try to find by aria-labelledby attribute first (most specific)
         try:
             btn = WebDriverWait(driver, timeout).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[@aria-labelledby='ssoConsentTitle' and @type='submit']"))
             )
             log_info("[SSO Consent] Found Continue button by aria-labelledby.")
         except Exception:
-            # Fallback: find submit button with text "Continue" in the form
             btn = WebDriverWait(driver, timeout).until(
                 EC.element_to_be_clickable((By.XPATH, "//form[@name='ssoConsentForm']//button[contains(@class, 'ext-primary') and normalize-space(text())='Continue']"))
             )
@@ -567,14 +563,14 @@ def recover_after_blank_popup(driver, dashboard_handle, dashboard_url):
         driver.refresh()
         if ACCEPT_UNHANDLED_PROMPTS:
             accept_any_alert(driver)
-        log_warn("Recover: refresh dashboard după blank popup.")
+        log_warn("Recover: refreshed dashboard after blank popup.")
         return True
     except Exception:
         try:
             driver.get(dashboard_url)
             if ACCEPT_UNHANDLED_PROMPTS:
                 accept_any_alert(driver)
-            log_warn("Recover: get dashboard după blank popup.")
+            log_warn("Recover: fetched dashboard after blank popup.")
             return True
         except Exception:
             return False
@@ -610,7 +606,7 @@ def find_pbi_signin_in_current_context(driver):
                     if not visible:
                         continue
                     if try_click(driver, el):
-                        log_info("Apăsat PBI 'Sign in' (context curent).")
+                        log_info("Pressed PBI 'Sign in' (current context).")
                         return True
                 except WebDriverException:
                     continue
@@ -816,7 +812,7 @@ def is_yammer_url(url: str) -> bool:
 
 def ensure_dashboard_handle(driver, dashboard_handle, dashboard_url):
     """
-    IMPORTANT: nu deschide tab-uri noi decât dacă dashboard-ul nu există nicăieri.
+    IMPORTANT: do not open new tabs unless the dashboard does not exist anywhere.
     """
     try:
         if dashboard_handle and dashboard_handle in driver.window_handles:
@@ -837,7 +833,7 @@ def ensure_dashboard_handle(driver, dashboard_handle, dashboard_url):
             if ACCEPT_UNHANDLED_PROMPTS:
                 accept_any_alert(driver)
             if is_dashboard_url(driver.current_url, dashboard_url):
-                log_warn("Dashboard handle refăcut prin scanare window_handles.")
+                log_warn("Dashboard handle restored by scanning window_handles.")
                 return h
         except Exception:
             continue
@@ -851,14 +847,14 @@ def ensure_dashboard_handle(driver, dashboard_handle, dashboard_url):
         accept_any_alert(driver)
     wait_dom_ready(driver)
     new_handle = driver.current_window_handle
-    log_warn("Dashboard nu a fost găsit; l-am redeschis într-un tab nou.")
+    log_warn("Dashboard not found; reopened in a new tab.")
     return new_handle
 
 
 # ===================== MAIN =====================
 def main():
     if not PASSWORD:
-        log_warn("Variabila de mediu PBI_KIOSK_PASSWORD nu este setată. Autologin poate eșua la parolă.")
+        log_warn("Environment variable PBI_KIOSK_PASSWORD is not set. Autologin might fail at password.")
 
     # Verify webdriver is available BEFORE attempting to start browser
     try:
@@ -873,8 +869,8 @@ def main():
         accept_any_alert(driver)
     wait_dom_ready(driver)
 
-    log_info(f"URL curent: {driver.current_url}")
-    log_info(f"Dashboard URL (din URL_PATH): {URL_DASHBOARD}")
+    log_info(f"Current URL: {driver.current_url}")
+    log_info(f"Dashboard URL (from URL_PATH): {URL_DASHBOARD}")
 
     DASHBOARD_HANDLE = driver.current_window_handle
     known_handles = set(driver.window_handles)
@@ -884,7 +880,7 @@ def main():
     last_heartbeat = 0.0
     consecutive_errors = 0  # Track consecutive errors for full restart
 
-    # Anti-flicker: un singur popup AAD "activ"
+    # Anti-flicker: a single "active" AAD popup
     aad_active_handle = None
     aad_active_since = 0.0
 
@@ -895,10 +891,10 @@ def main():
             if ACCEPT_UNHANDLED_PROMPTS:
                 accept_any_alert(driver)
 
-            # Safety: cap tab-uri (nu închide dashboard)
+            # Safety: tab cap (do not close dashboard)
             try:
                 if len(driver.window_handles) > MAX_TABS_SAFETY:
-                    log_warn(f"Prea multe tab-uri ({len(driver.window_handles)}). Închid cele mai noi ca protecție.")
+                    log_warn(f"Too many tabs ({len(driver.window_handles)}). Closing the newest ones for protection.")
                     keep = set([DASHBOARD_HANDLE])
                     for h in list(driver.window_handles):
                         if h not in keep and len(keep) < 3:
@@ -918,13 +914,13 @@ def main():
                         accept_any_alert(driver)
                     log_info(f"Heartbeat: handles={len(driver.window_handles)} | dashboard_url={driver.current_url} | aad_active={bool(aad_active_handle)}")
                 except Exception:
-                    log_info("Heartbeat: (nu pot citi current_url)")
+                    log_info("Heartbeat: (cannot read current_url)")
                 last_heartbeat = now
 
-            # 0) Asigură dashboard handle (minimizează switch random)
+            # 0) Ensure dashboard handle (minimizes random switches)
             DASHBOARD_HANDLE = ensure_dashboard_handle(driver, DASHBOARD_HANDLE, URL_DASHBOARD)
 
-            # 1) Detectează window-uri noi și tratează popup blank
+            # 1) Detect new windows and handle blank popup
             try:
                 current_handles = set(driver.window_handles)
             except WebDriverException:
@@ -935,8 +931,8 @@ def main():
                 for nh in list(new_handles):
                     window_states.setdefault(nh, {"last_tile_click": 0, "tile_clicks": 0})
 
-                    # IMPORTANT: aici comutăm doar ca să citim url-ul și să decidem dacă e AAD/blank,
-                    # dar nu facem loop prin toate ferestrele mereu.
+                    # IMPORTANT: switch here only to read url and decide if it's AAD/blank,
+                    # but don't loop through all windows constantly.
                     try:
                         driver.switch_to.window(nh)
                         if ACCEPT_UNHANDLED_PROMPTS:
@@ -947,7 +943,7 @@ def main():
                     url = wait_for_popup_navigation(driver, timeout=BLANK_POPUP_WAIT_SECONDS)
 
                     if url is None:
-                        log_warn(f"Popup {nh} a rămas BLANK (about:blank). Îl închid.")
+                        log_warn(f"Popup {nh} stayed BLANK (about:blank). Closing it.")
                         safe_close_window(driver, nh, protected_handles={DASHBOARD_HANDLE})
 
                         now2 = time.time()
@@ -955,32 +951,32 @@ def main():
                             last_blank_popup_recover = now2
                             recover_after_blank_popup(driver, DASHBOARD_HANDLE, URL_DASHBOARD)
                         else:
-                            log_warn("Blank popup repetat prea des -> skip recover (cooldown activ).")
+                            log_warn("Blank popup repeated too often -> skip recover (cooldown active).")
                     elif is_yammer_url(url):
-                        log_warn(f"Detectat Yammer tab {nh} | URL: {url}. Îl închid.")
+                        log_warn(f"Detected Yammer tab {nh} | URL: {url}. Closing it.")
                         safe_close_window(driver, nh, protected_handles={DASHBOARD_HANDLE})
                     else:
-                        log_info(f"Detectat window nou: {nh} | URL: {url}")
+                        log_info(f"Detected new window: {nh} | URL: {url}")
 
-                        # Anti-flicker: setează primul popup AAD ca "activ"
+                        # Anti-flicker: set the first AAD popup as "active"
                         if is_aad_url(url) and aad_active_handle is None:
                             aad_active_handle = nh
                             aad_active_since = time.time()
-                            log_warn(f"[AAD] Flow activ pe handle={aad_active_handle}. Nu mai spam PBI Sign-in.")
+                            log_warn(f"[AAD] Flow active on handle={aad_active_handle}. Stop spamming PBI Sign-in.")
 
-                # întoarce-te la dashboard după inspectarea popup-urilor
+                # return to dashboard after inspecting popups
                 try:
                     driver.switch_to.window(DASHBOARD_HANDLE)
                 except Exception:
                     pass
 
-            # Refresh known_handles după posibile close-uri
+            # Refresh known_handles after possible closures
             try:
                 known_handles = set(driver.window_handles)
             except Exception:
                 pass
 
-            # 2) Scan PBI Sign in - MEREU în dashboard, dar nu dacă AAD e activ (anti flicker + anti popup spam)
+            # 2) Scan PBI Sign in - ALWAYS in dashboard, but not if AAD is active (anti flicker + anti popup spam)
             try:
                 driver.switch_to.window(DASHBOARD_HANDLE)
                 if ACCEPT_UNHANDLED_PROMPTS:
@@ -989,33 +985,33 @@ def main():
             except Exception:
                 pass
 
-            # dacă AAD e activ, nu apăsăm "Sign in" în PBI; așteptăm să se termine flow-ul
+            # if AAD is active, do not press "Sign in" in PBI; wait for the flow to finish
             if SKIP_PBI_SIGNIN_WHEN_AAD_ACTIVE and aad_active_handle:
                 if (time.time() - aad_active_since) > AAD_FLOW_ACTIVE_TIMEOUT:
-                    log_warn("[AAD] Timeout flow. Resetez AAD handle ca să permit re-încercarea.")
+                    log_warn("[AAD] Flow timeout. Resetting AAD handle to allow retry.")
                     aad_active_handle = None
                     aad_active_since = 0.0
             else:
                 now = time.time()
                 if now - last_pbi_click > PBI_SIGNIN_COOLDOWN:
                     try:
-                        log_info(f"Scanez PBI în dashboard | URL: {driver.current_url}")
+                        log_info(f"Scanning PBI in dashboard | URL: {driver.current_url}")
                     except Exception:
-                        log_info("Scanez PBI în dashboard | URL: (necunoscut)")
+                        log_info("Scanning PBI in dashboard | URL: (unknown)")
 
                     if scan_frames_recursive_and_click_pbi(driver, depth=0, max_depth=IFRAME_MAX_DEPTH, install_watchdog=True):
                         last_pbi_click = now
 
-            # 3) Procesează AAD DOAR pe fereastra activă (reduce flicker masiv)
+            # 3) Process AAD ONLY on the active window (reduces massive flicker)
             if aad_active_handle:
-                # dacă fereastra a dispărut, reset
+                # if window disappeared, reset
                 try:
                     handles_now = set(driver.window_handles)
                 except Exception:
                     handles_now = set()
 
                 if aad_active_handle not in handles_now:
-                    log_warn("[AAD] Handle activ nu mai există. Reset AAD.")
+                    log_warn("[AAD] Active handle no longer exists. Resetting AAD.")
                     aad_active_handle = None
                     aad_active_since = 0.0
                 else:
@@ -1034,25 +1030,25 @@ def main():
                             url = ""
 
                         if is_blank_popup_url(url):
-                            # dacă a devenit blank, închide și reset
-                            log_warn("[AAD] Popup activ a devenit blank. Îl închid și reset.")
+                            # if it became blank, close and reset
+                            log_warn("[AAD] Active popup became blank. Closing and resetting.")
                             safe_close_window(driver, aad_active_handle, protected_handles={DASHBOARD_HANDLE})
                             aad_active_handle = None
                             aad_active_since = 0.0
                         elif is_aad_url(url):
-                            log_info(f"[AAD] Procesez flow | handle={aad_active_handle} | URL: {url}")
+                            log_info(f"[AAD] Processing flow | handle={aad_active_handle} | URL: {url}")
                             handle_microsoft_pages_once(driver, USER_EMAIL, PASSWORD or "", st, max_wait=5)
 
-                            # dacă a ieșit de pe domeniile AAD, flow-ul e gata
+                            # if it left AAD domains, the flow is complete
                             try:
                                 if not is_aad_url(driver.current_url):
-                                    log_info("[AAD] Flow complet. Închid popup (opțional) și revin la dashboard.")
+                                    log_info("[AAD] Flow complete. Closing popup (optional) and returning to dashboard.")
                                     st["tile_clicks"] = 0
 
                                     if CLOSE_AAD_POPUP_WHEN_DONE:
                                         try:
                                             driver.close()
-                                            log_info("[AAD] Popup închis.")
+                                            log_info("[AAD] Popup closed.")
                                         except Exception:
                                             pass
 
@@ -1061,12 +1057,12 @@ def main():
                             except Exception:
                                 pass
                         else:
-                            # nu mai e AAD => considerăm terminat
-                            log_info("[AAD] Popup activ nu mai e AAD. Reset AAD.")
+                            # no longer AAD => consider it done
+                            log_info("[AAD] Active popup no longer AAD. Resetting AAD.")
                             aad_active_handle = None
                             aad_active_since = 0.0
 
-            # Revino pe dashboard la finalul iterației (stabilizează focus)
+            # Return to dashboard at the end of iteration (stabilizes focus)
             try:
                 driver.switch_to.window(DASHBOARD_HANDLE)
                 if ACCEPT_UNHANDLED_PROMPTS:
@@ -1077,15 +1073,15 @@ def main():
             time.sleep(SCAN_INTERVAL_SECONDS)
 
         except KeyboardInterrupt:
-            log_info("Ctrl+C -> las fereastra Edge deschisă (nu închid driverul).")
+            log_info("Ctrl+C -> leaving Edge window open (not closing driver).")
             break
 
         except Exception as e:
             consecutive_errors += 1
-            LOGGER.exception("Excepție în loop (stacktrace):")
+            LOGGER.exception("Exception in loop (stacktrace):")
             log_err(f"Consecutive errors: {consecutive_errors}")
 
-            # Self-heal când driverul moare (WinError 10061 etc.)
+            # Self-heal when driver dies (WinError 10061 etc.)
             if is_driver_dead_exception(e):
                 try:
                     driver = restart_driver(driver, reason=repr(e), retries=3)
