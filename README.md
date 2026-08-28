@@ -30,9 +30,16 @@ Tab Management: Automatically detects and closes empty popups (about:blank) or u
 
 **Setup & Installation** 💽
 
-1. Run the provided batch script as Administrator to install the required Python packages (selenium>=4.0.0 and webdriver-manager>=4.0.0): **setup.bat**
+1. Run the provided batch script as Administrator to install the required Python packages (selenium>=4.0.0 and webdriver-manager>=4.0.0): **setup.bat**   | MAKE SURE YOU DOWNLOADED REQUIREMENTS.TXT
 2. Configure the Target URL: Edit the config.json file to point to your local HTML wrapper or dashboard link.
 3. Set the Password Environment Variable: To avoid storing passwords in plain text, open the Command Prompt and set your kiosk password using **setx PBI_KIOSK_PASSWORD "your_actual_password_here"**
 
 **Usage**
 Once configured, simply execute the main script: python auto_signIn_kiosk_v2.8.py (or wtv you want to name it)
+
+**License**
+This project is open-source and licensed under the GNU GPLv3 License.
+
+**Commercial Use**
+
+If you intend to integrate this script into a closed-source project or require a license without the strict open-source distribution requirements of GPLv3, please contact me directly to arrange a commercial license, but I highly doubt anyone wants this cr@p.
